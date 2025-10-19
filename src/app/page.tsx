@@ -20,10 +20,10 @@ export default function Home() {
               POS Terminal
             </Link>
             <Link
-              href="/menu"
+              href="/ordering"
               className="bg-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
             >
-              Online Menu
+              Online Ordering
             </Link>
             <Link
               href="/kds"
@@ -36,7 +36,7 @@ export default function Home() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div className="bg-white rounded-lg p-6 shadow-lg">
-            <div className="text-blue-600 text-3xl mb-4">🍕</div>
+            <div className="text-blue-600 text-3xl mb-4 font-bold">Order Management</div>
             <h3 className="text-xl font-semibold mb-2">Order Management</h3>
             <p className="text-gray-600">
               Handle in-person and online orders with real-time synchronization 
@@ -45,7 +45,7 @@ export default function Home() {
           </div>
 
           <div className="bg-white rounded-lg p-6 shadow-lg">
-            <div className="text-green-600 text-3xl mb-4">💳</div>
+            <div className="text-green-600 text-3xl mb-4 font-bold">Payment Processing</div>
             <h3 className="text-xl font-semibold mb-2">Payment Processing</h3>
             <p className="text-gray-600">
               Integrated with Square, Toast, and Clover for seamless payment 
@@ -54,7 +54,7 @@ export default function Home() {
           </div>
 
           <div className="bg-white rounded-lg p-6 shadow-lg">
-            <div className="text-orange-600 text-3xl mb-4">📱</div>
+            <div className="text-orange-600 text-3xl mb-4 font-bold">Kitchen Display</div>
             <h3 className="text-xl font-semibold mb-2">Kitchen Display</h3>
             <p className="text-gray-600">
               Real-time order updates to kitchen staff with priority queuing 
@@ -63,7 +63,7 @@ export default function Home() {
           </div>
 
           <div className="bg-white rounded-lg p-6 shadow-lg">
-            <div className="text-purple-600 text-3xl mb-4">📊</div>
+            <div className="text-purple-600 text-3xl mb-4 font-bold">Inventory Management</div>
             <h3 className="text-xl font-semibold mb-2">Inventory Management</h3>
             <p className="text-gray-600">
               Track stock levels, set alerts, and forecast usage with AI-powered 
@@ -72,7 +72,7 @@ export default function Home() {
           </div>
 
           <div className="bg-white rounded-lg p-6 shadow-lg">
-            <div className="text-red-600 text-3xl mb-4">🤖</div>
+            <div className="text-red-600 text-3xl mb-4 font-bold">AI Insights</div>
             <h3 className="text-xl font-semibold mb-2">AI Insights</h3>
             <p className="text-gray-600">
               Get personalized menu recommendations and sales forecasting 
@@ -81,7 +81,7 @@ export default function Home() {
           </div>
 
           <div className="bg-white rounded-lg p-6 shadow-lg">
-            <div className="text-indigo-600 text-3xl mb-4">📈</div>
+            <div className="text-indigo-600 text-3xl mb-4 font-bold">Analytics & Reports</div>
             <h3 className="text-xl font-semibold mb-2">Analytics & Reports</h3>
             <p className="text-gray-600">
               Comprehensive reporting dashboard with sales analytics, 
