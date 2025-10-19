@@ -1,0 +1,53 @@
+config:
+  target: '{{ API_URL }}'
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 10
+      name: "Ramp up load"
+    - duration: 300
+      arrivalRate: 20
+      name: "Sustained load"
+    - duration: 60
+      arrivalRate: 5
+      name: "Ramp down"
+
+scenarios:
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/health"
+
+  - name: "Menu API"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/menu"
+
+  - name: "Order Creation"
+    weight: 40
+    flow:
+      - post:
+          url: "/api/orders"
+          json:
+            orderItems:
+              - menuItemId: "test-item-id"
+                quantity: 2
+                price: 15.99
+            customerName: "Test Customer"
+            customerPhone: "+1234567890"
+            channel: "ONLINE"
+
+  - name: "Payment Processing"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/payments"
+          json:
+            orderId: "test-order-id"
+            amount: 25.99
+            method: "CARD"
+            squarePaymentId: "test-payment-id"

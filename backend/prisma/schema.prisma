@@ -1,0 +1,208 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      UserRole @default(STAFF)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orders Order[]
+
+  @@map("users")
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  category    String
+  isAvailable Boolean  @default(true)
+  imageUrl    String?
+  squareId    String?  @unique // Square Catalog API ID
+  modifiers   Json?    // Store modifier options as JSON
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  orderItems OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  status      OrderStatus @default(PENDING)
+  channel     OrderChannel @default(IN_PERSON)
+  subtotal    Decimal     @db.Decimal(10, 2)
+  tax         Decimal     @db.Decimal(10, 2)
+  tip         Decimal     @db.Decimal(10, 2) @default(0)
+  total       Decimal     @db.Decimal(10, 2)
+  customerName String?
+  customerPhone String?
+  customerEmail String?
+  notes       String?
+  squareOrderId String?   @unique // Square Orders API ID
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id])
+  orderItems  OrderItem[]
+  payments    Payment[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+  modifiers Json?    // Store selected modifiers as JSON
+  notes     String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@map("order_items")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Decimal       @db.Decimal(10, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  squarePaymentId String?     @unique // Square Payments API ID
+  transactionId String?       @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  @@map("payments")
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  currentStock Int
+  minStock    Int
+  maxStock    Int
+  unit        String   // e.g., "lbs", "pieces", "gallons"
+  costPerUnit Decimal  @db.Decimal(10, 2)
+  squareId    String?  @unique // Square Inventory API ID
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("inventory_items")
+}
+
+model Reservation {
+  id          String   @id @default(cuid())
+  customerName String
+  customerPhone String
+  customerEmail String?
+  partySize   Int
+  date        DateTime
+  time        String
+  status      ReservationStatus @default(CONFIRMED)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("reservations")
+}
+
+model LoyaltyCustomer {
+  id            String   @id @default(cuid())
+  customerName  String
+  customerPhone String   @unique
+  customerEmail String?
+  points        Int      @default(0)
+  tier          LoyaltyTier @default(BRONZE)
+  totalSpent    Decimal  @db.Decimal(10, 2) @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("loyalty_customers")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+  KITCHEN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderChannel {
+  IN_PERSON
+  ONLINE
+  PHONE
+  QR_CODE
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  SQUARE
+  TOAST
+  CLOVER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  SEATED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum LoyaltyTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
