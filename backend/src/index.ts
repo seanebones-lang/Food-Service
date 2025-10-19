@@ -16,6 +16,9 @@ import paymentRoutes from './routes/payments';
 import inventoryRoutes from './routes/inventory';
 import kdsRoutes from './routes/kds';
 
+// Import services
+import { cronService } from './services/cronService';
+
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
@@ -94,6 +97,46 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/kds', kdsRoutes);
 
+// Square webhook endpoint
+app.post('/webhooks/square', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    const signature = req.headers['x-square-signature'] as string;
+    const body = req.body.toString();
+    const url = req.url;
+
+    // Verify webhook signature
+    const { squareService } = await import('./services/squareService');
+    if (!squareService.verifyWebhook(signature, body, url)) {
+      return res.status(401).json({ error: 'Invalid webhook signature' });
+    }
+
+    const event = JSON.parse(body);
+    
+    // Handle different webhook events
+    switch (event.type) {
+      case 'payment.updated':
+        // Handle payment updates
+        winstonLogger.info('Payment webhook received', { event });
+        break;
+      case 'order.updated':
+        // Handle order updates
+        winstonLogger.info('Order webhook received', { event });
+        break;
+      case 'inventory.count.updated':
+        // Handle inventory updates
+        winstonLogger.info('Inventory webhook received', { event });
+        break;
+      default:
+        winstonLogger.info('Unknown webhook event', { event });
+    }
+
+    res.status(200).json({ received: true });
+  } catch (error) {
+    winstonLogger.error('Webhook processing failed', { error });
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
 // Socket.IO connection handling for KDS
 io.on('connection', (socket) => {
   winstonLogger.info(`KDS client connected: ${socket.id}`);
@@ -138,6 +181,7 @@ server.listen(PORT, () => {
   winstonLogger.info(`🚀 Restaurant POS Backend running on port ${PORT}`);
   winstonLogger.info(`📊 Environment: ${process.env.NODE_ENV}`);
   winstonLogger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL}`);
+  winstonLogger.info(`⏰ Cron jobs initialized: ${Object.keys(cronService.getJobStatus()).length} jobs`);
 });
 
 export default app;

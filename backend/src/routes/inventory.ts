@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
 import { prisma } from '../index';
+import { squareService } from '../services/squareService';
+import { aiService } from '../services/aiService';
+import { twilioService } from '../services/twilioService';
 
 const router = Router();
 
@@ -153,8 +156,15 @@ router.patch('/:id/stock', authenticateToken, asyncHandler(async (req, res) => {
 
   // Check for low stock alert
   if (newStock <= inventoryItem.minStock) {
-    // TODO: Send SMS alert via Twilio
-    console.log(`LOW STOCK ALERT: ${inventoryItem.name} is at ${newStock} ${inventoryItem.unit}`);
+    const managerPhone = process.env.MANAGER_PHONE;
+    if (managerPhone) {
+      await twilioService.sendInventoryAlert({
+        name: inventoryItem.name,
+        currentStock: newStock,
+        minStock: inventoryItem.minStock,
+        unit: inventoryItem.unit
+      }, managerPhone);
+    }
   }
 
   res.json({
@@ -181,4 +191,74 @@ router.get('/alerts/low-stock', authenticateToken, asyncHandler(async (req, res)
   });
 }));
 
-export default router;
+// Get AI inventory predictions
+router.get('/predictions', authenticateToken, asyncHandler(async (req, res) => {
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: { isActive: true }
+  });
+
+  // Calculate daily usage for each item (simplified calculation)
+  const inventoryData = inventoryItems.map(item => ({
+    itemName: item.name,
+    currentStock: item.currentStock,
+    dailyUsage: Math.max(1, item.currentStock / 7), // Rough estimate
+    leadTime: 3 // Default 3 days lead time
+  }));
+
+  const predictions = await aiService.predictInventoryNeeds(inventoryData);
+
+  res.json({
+    success: true,
+    data: predictions
+  });
+}));
+
+// Sync inventory with Square
+router.post('/sync/square', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const syncedCount = await squareService.syncInventory();
+    
+    res.json({
+      success: true,
+      message: `Successfully synced ${syncedCount} inventory items with Square`,
+      syncedCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync inventory with Square',
+      details: error.message
+    });
+  }
+}));
+
+// Get inventory analytics
+router.get('/analytics', authenticateToken, asyncHandler(async (req, res) => {
+  const { days = 30 } = req.query;
+  
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - parseInt(days as string));
+
+  // Get inventory usage data (this would need to be calculated from order history)
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: { isActive: true },
+    include: {
+      // This would need relations to order items for actual usage tracking
+    }
+  });
+
+  const analytics = {
+    totalItems: inventoryItems.length,
+    lowStockItems: inventoryItems.filter(item => item.currentStock <= item.minStock).length,
+    outOfStockItems: inventoryItems.filter(item => item.currentStock === 0).length,
+    totalValue: inventoryItems.reduce((sum, item) => 
+      sum + (item.currentStock * Number(item.costPerUnit)), 0
+    ),
+    averageStockLevel: inventoryItems.reduce((sum, item) => sum + item.currentStock, 0) / inventoryItems.length
+  };
+
+  res.json({
+    success: true,
+    data: analytics
+  });
+}));

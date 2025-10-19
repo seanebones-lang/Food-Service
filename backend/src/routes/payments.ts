@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
 import { prisma } from '../index';
+import { squareService } from '../services/squareService';
+import { twilioService } from '../services/twilioService';
 
 const router = Router();
 
@@ -68,11 +70,18 @@ router.get('/:id', authenticateToken, asyncHandler(async (req, res) => {
 
 // Process payment
 router.post('/', asyncHandler(async (req, res) => {
-  const { orderId, amount, method, squarePaymentId, transactionId } = req.body;
+  const { orderId, amount, method, squarePaymentId, transactionId, sourceId, idempotencyKey } = req.body;
 
   // Verify order exists
   const order = await prisma.order.findUnique({
-    where: { id: orderId }
+    where: { id: orderId },
+    include: {
+      orderItems: {
+        include: {
+          menuItem: true
+        }
+      }
+    }
   });
 
   if (!order) {
@@ -80,6 +89,32 @@ router.post('/', asyncHandler(async (req, res) => {
       success: false,
       error: 'Order not found'
     });
+  }
+
+  let squarePaymentResult = null;
+
+  // Process payment through Square if sourceId is provided
+  if (method === 'CARD' && sourceId && idempotencyKey) {
+    try {
+      squarePaymentResult = await squareService.createPayment({
+        sourceId,
+        amountMoney: {
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'USD'
+        },
+        idempotencyKey,
+        locationId: process.env.SQUARE_LOCATION_ID
+      });
+
+      // Update squarePaymentId with the actual payment ID
+      squarePaymentId = squarePaymentResult.payment?.id;
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment processing failed',
+        details: error.message
+      });
+    }
   }
 
   // Create payment record
@@ -90,7 +125,7 @@ router.post('/', asyncHandler(async (req, res) => {
       method,
       squarePaymentId,
       transactionId,
-      status: 'COMPLETED'
+      status: squarePaymentResult ? 'COMPLETED' : 'PENDING'
     }
   });
 
@@ -105,11 +140,20 @@ router.post('/', asyncHandler(async (req, res) => {
       where: { id: orderId },
       data: { status: 'CONFIRMED' }
     });
+
+    // Send notification to manager
+    const managerPhone = process.env.MANAGER_PHONE;
+    if (managerPhone) {
+      await twilioService.sendPaymentAlert(Number(amount), order.orderNumber, managerPhone);
+    }
   }
 
   res.status(201).json({
     success: true,
-    data: payment
+    data: {
+      ...payment,
+      squarePayment: squarePaymentResult
+    }
   });
 }));
 
@@ -119,7 +163,10 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req, res) => {
   const { amount, reason } = req.body;
 
   const payment = await prisma.payment.findUnique({
-    where: { id }
+    where: { id },
+    include: {
+      order: true
+    }
   });
 
   if (!payment) {
@@ -129,19 +176,44 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req, res) => {
     });
   }
 
+  let squareRefundResult = null;
+
+  // Process refund through Square if squarePaymentId exists
+  if (payment.squarePaymentId) {
+    try {
+      squareRefundResult = await squareService.refundPayment(
+        payment.squarePaymentId,
+        {
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'USD'
+        }
+      );
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Refund processing failed',
+        details: error.message
+      });
+    }
+  }
+
   // Create refund record
   const refund = await prisma.payment.create({
     data: {
       orderId: payment.orderId,
       amount: -parseFloat(amount), // Negative amount for refund
       method: payment.method,
-      status: 'REFUNDED'
+      status: squareRefundResult ? 'REFUNDED' : 'PENDING',
+      squarePaymentId: squareRefundResult?.refund?.id
     }
   });
 
   res.status(201).json({
     success: true,
-    data: refund
+    data: {
+      ...refund,
+      squareRefund: squareRefundResult
+    }
   });
 }));
 
