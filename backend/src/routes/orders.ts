@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/auth';
 import { prisma, io } from '../index';
 import { squareService } from '../services/squareService';
 import { twilioService } from '../services/twilioService';
+import { OrderStatus, OrderChannel } from '@prisma/client';
 
 const router = Router();
 
@@ -11,9 +12,9 @@ const router = Router();
 router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   const { status, channel, limit = 50, offset = 0 } = req.query;
 
-  const where: any = {};
-  if (status) where.status = status;
-  if (channel) where.channel = channel;
+  const where: { status?: OrderStatus; channel?: OrderChannel } = {};
+  if (status && typeof status === 'string') where.status = status as OrderStatus;
+  if (channel && typeof channel === 'string') where.channel = channel as OrderChannel;
 
   const orders = await prisma.order.findMany({
     where,
@@ -71,7 +72,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req, res) => {
     });
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: order
   });
@@ -127,7 +128,7 @@ router.post('/', asyncHandler(async (req, res) => {
       customerEmail,
       notes,
       orderItems: {
-        create: processedOrderItems.map((item: any) => ({
+        create: processedOrderItems.map((item: { quantity: number; price: number; modifiers?: string; notes?: string; menuItemId: string }) => ({
           quantity: item.quantity,
           price: item.price,
           modifiers: item.modifiers ? JSON.parse(item.modifiers) : null,
@@ -149,14 +150,14 @@ router.post('/', asyncHandler(async (req, res) => {
   let squareOrderResult = null;
   if (syncToSquare && process.env.SQUARE_LOCATION_ID) {
     try {
-      const squareLineItems = processedOrderItems.map((item: any) => ({
+      const squareLineItems = processedOrderItems.map((item: { menuItem?: { name: string }; quantity: number; price: number; modifiers?: Array<{ name: string; price?: number }> }) => ({
         name: item.menuItem?.name || 'Unknown Item',
         quantity: item.quantity.toString(),
         basePriceMoney: {
           amount: Math.round(item.price * 100), // Convert to cents
           currency: 'USD'
         },
-        modifiers: item.modifiers ? item.modifiers.map((mod: any) => ({
+        modifiers: item.modifiers ? item.modifiers.map((mod: { name: string; price?: number }) => ({
           name: mod.name,
           basePriceMoney: {
             amount: Math.round((mod.price || 0) * 100),
@@ -166,11 +167,12 @@ router.post('/', asyncHandler(async (req, res) => {
       }));
 
       squareOrderResult = await squareService.createOrder({
-        locationId: process.env.SQUARE_LOCATION_ID,
+        locationId: process.env.SQUARE_LOCATION_ID || '',
         lineItems: squareLineItems,
         taxes: [{
           name: 'Sales Tax',
-          percentage: '8.0'
+          percentage: '8.0',
+          scope: 'ORDER'
         }]
       });
 
@@ -267,7 +269,7 @@ router.patch('/:id/status', authenticateToken, asyncHandler(async (req, res) => 
     order: updatedOrder
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: updatedOrder
   });

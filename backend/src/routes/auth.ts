@@ -45,7 +45,7 @@ router.post('/register', authenticateToken, asyncHandler(async (req: AuthRequest
     }
   });
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
     data: user
   });
@@ -81,10 +81,10 @@ router.post('/login', asyncHandler(async (req, res) => {
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
     process.env.JWT_SECRET!,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+    { expiresIn: '24h' }
   );
 
-  res.json({
+  return res.json({
     success: true,
     data: {
       token,
@@ -113,7 +113,7 @@ router.get('/me', authenticateToken, asyncHandler(async (req: AuthRequest, res) 
     }
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: user
   });
@@ -138,7 +138,7 @@ router.put('/me', authenticateToken, asyncHandler(async (req: AuthRequest, res) 
     }
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: user
   });
@@ -178,7 +178,7 @@ router.put('/change-password', authenticateToken, asyncHandler(async (req: AuthR
     data: { password: hashedPassword }
   });
 
-  res.json({
+  return res.json({
     success: true,
     message: 'Password updated successfully'
   });

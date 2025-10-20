@@ -10,20 +10,21 @@ export interface AuthRequest extends Request {
   };
 }
 
-export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       error: 'Access token required'
     });
+    return;
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string; email: string };
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -35,16 +36,17 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
     });
 
     if (!user || !user.isActive) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Invalid token or user inactive'
       });
+      return;
     }
 
     req.user = user;
     next();
-  } catch (error) {
-    return res.status(403).json({
+  } catch {
+    res.status(403).json({
       success: false,
       error: 'Invalid token'
     });
@@ -52,19 +54,21 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
 };
 
 export const requireRole = (roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Authentication required'
       });
+      return;
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: 'Insufficient permissions'
       });
+      return;
     }
 
     next();

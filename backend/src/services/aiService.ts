@@ -56,10 +56,10 @@ export class AIService {
     }
   }
 
-  private buildRecommendationContext(customerHistory: any): string {
+  private buildRecommendationContext(customerHistory: { pastOrders: Array<{ menuItemId: string }>; preferences?: string[]; dietaryRestrictions?: string[] }): string {
     const orderSummary = customerHistory.pastOrders
       .slice(-5) // Last 5 orders
-      .map((order: any) => order.menuItemId)
+      .map((order: { menuItemId: string }) => order.menuItemId)
       .join(', ');
 
     const preferences = customerHistory.preferences?.join(', ') || '';
@@ -68,7 +68,7 @@ export class AIService {
     return `Orders: ${orderSummary}. Preferences: ${preferences}. Restrictions: ${restrictions}`;
   }
 
-  private parseRecommendations(aiResponse: any): string[] {
+  private parseRecommendations(aiResponse: Array<{ generated_text?: string }>): string[] {
     try {
       // Parse AI response and extract menu item names
       // This is a simplified parser - in production, you'd want more sophisticated parsing
@@ -136,21 +136,22 @@ export class AIService {
     }
   }
 
-  private generateInsights(salesData: any[], trend: string): string[] {
+  private generateInsights(salesData: Array<{ topItems: string[]; revenue: number; orderCount: number }>, trend: string): string[] {
     const insights: string[] = [];
 
     // Analyze top items
     const allItems = salesData.flatMap(day => day.topItems);
-    const itemCounts = allItems.reduce((acc: any, item: string) => {
+    const itemCounts = allItems.reduce((acc: Record<string, number>, item: string) => {
       acc[item] = (acc[item] || 0) + 1;
       return acc;
     }, {});
 
-    const topItem = Object.keys(itemCounts).reduce((a, b) => 
-      itemCounts[a] > itemCounts[b] ? a : b
-    );
-
-    insights.push(`${topItem} is your most popular item`);
+    if (Object.keys(itemCounts).length > 0) {
+      const topItem = Object.keys(itemCounts).reduce((a, b) => 
+        itemCounts[a] > itemCounts[b] ? a : b
+      );
+      insights.push(`${topItem} is your most popular item`);
+    }
 
     // Trend-based insights
     if (trend === 'increasing') {

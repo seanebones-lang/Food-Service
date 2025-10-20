@@ -98,7 +98,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/kds', kdsRoutes);
 
 // Square webhook endpoint
-app.post('/webhooks/square', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/webhooks/square', express.raw({ type: 'application/json' }), async (req, res): Promise<void> => {
   try {
     const signature = req.headers['x-square-signature'] as string;
     const body = req.body.toString();
@@ -107,11 +107,12 @@ app.post('/webhooks/square', express.raw({ type: 'application/json' }), async (r
     // Verify webhook signature
     const { squareService } = await import('./services/squareService');
     if (!squareService.verifyWebhook(signature, body, url)) {
-      return res.status(401).json({ error: 'Invalid webhook signature' });
+      res.status(401).json({ error: 'Invalid webhook signature' });
+      return;
     }
 
     const event = JSON.parse(body);
-    
+
     // Handle different webhook events
     switch (event.type) {
       case 'payment.updated':
@@ -141,7 +142,7 @@ app.post('/webhooks/square', express.raw({ type: 'application/json' }), async (r
 io.on('connection', (socket) => {
   winstonLogger.info(`KDS client connected: ${socket.id}`);
 
-  socket.on('join-kitchen', (data) => {
+  socket.on('join-kitchen', () => {
     socket.join('kitchen');
     winstonLogger.info(`Kitchen staff joined: ${socket.id}`);
   });
@@ -155,7 +156,7 @@ io.on('connection', (socket) => {
 app.use(errorHandler);
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({
     error: 'Route not found',
     path: req.originalUrl

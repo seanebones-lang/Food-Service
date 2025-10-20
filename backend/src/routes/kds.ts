@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
 import { prisma, io } from '../index';
+import { OrderStatus } from '@prisma/client';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.get('/orders', authenticateToken, asyncHandler(async (req, res) => {
 
   const orders = await prisma.order.findMany({
     where: {
-      status: status as any,
+      status: (status as OrderStatus) || OrderStatus.PREPARING,
       channel: { in: ['IN_PERSON', 'ONLINE'] }
     },
     include: {

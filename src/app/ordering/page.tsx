@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { io } from 'socket.io-client';
-import { ShoppingCart, Plus, Minus, Clock, MapPin, CreditCard } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, CreditCard } from 'lucide-react';
 
 interface MenuItem {
   id: string;
@@ -28,19 +28,6 @@ interface CartItem {
   quantity: number;
   selectedModifiers: Modifier[];
   notes?: string;
-}
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  status: string;
-  total: number;
-  items: CartItem[];
-  customerName?: string;
-  customerPhone?: string;
-  customerEmail?: string;
-  channel: 'IN_PERSON' | 'ONLINE';
-  createdAt: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -74,17 +61,31 @@ export default function OnlineOrdering() {
   // Socket.io for real-time updates
   useEffect(() => {
     const socket = io(API_URL);
-    
-    socket.on('order-status-update', (data) => {
+
+    socket.on('order-status-update', () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [queryClient]);
 
   // Create order mutation
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: any) => {
+    mutationFn: async (orderData: {
+      orderItems: Array<{
+        menuItemId: string;
+        quantity: number;
+        modifiers?: Array<{ id: string; name: string; price: number }>;
+        notes?: string;
+      }>;
+      customerName: string;
+      customerPhone: string;
+      customerEmail: string;
+      channel: string;
+      syncToSquare: boolean;
+    }) => {
       const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,10 +168,10 @@ export default function OnlineOrdering() {
     });
   };
 
-  const categories = ['all', ...new Set(menuItems.map(item => item.category))];
+  const categories: string[] = ['all', ...(Array.from(new Set(menuItems.map((item: MenuItem) => item.category))) as string[])];
   const filteredItems = selectedCategory === 'all' 
     ? menuItems 
-    : menuItems.filter(item => item.category === selectedCategory);
+    : menuItems.filter((item: MenuItem) => item.category === selectedCategory);
 
   if (isLoading) {
     return (
@@ -234,10 +235,11 @@ export default function OnlineOrdering() {
 
         {/* Menu Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredItems.map(item => (
+          {filteredItems.map((item: MenuItem) => (
             <div key={item.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
               {item.imageUrl && (
                 <div className="aspect-w-16 aspect-h-9">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={item.imageUrl}
                     alt={item.name}

@@ -88,12 +88,18 @@ async function main() {
   ];
 
   for (const item of menuItems) {
-    const menuItem = await prisma.menuItem.upsert({
-      where: { name: item.name },
-      update: {},
-      create: item
+    const existingItem = await prisma.menuItem.findFirst({
+      where: { name: item.name }
     });
-    console.log('✅ Menu item created:', menuItem.name);
+    
+    if (!existingItem) {
+      const menuItem = await prisma.menuItem.create({
+        data: item
+      });
+      console.log('✅ Menu item created:', menuItem.name);
+    } else {
+      console.log('⏭️  Menu item already exists:', item.name);
+    }
   }
 
   // Create sample inventory items
@@ -146,12 +152,18 @@ async function main() {
   ];
 
   for (const item of inventoryItems) {
-    const inventoryItem = await prisma.inventoryItem.upsert({
-      where: { name: item.name },
-      update: {},
-      create: item
+    const existingItem = await prisma.inventoryItem.findFirst({
+      where: { name: item.name }
     });
-    console.log('✅ Inventory item created:', inventoryItem.name);
+    
+    if (!existingItem) {
+      const inventoryItem = await prisma.inventoryItem.create({
+        data: item
+      });
+      console.log('✅ Inventory item created:', inventoryItem.name);
+    } else {
+      console.log('⏭️  Inventory item already exists:', item.name);
+    }
   }
 
   // Create sample loyalty customer

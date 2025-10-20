@@ -12,7 +12,7 @@ router.get('/', asyncHandler(async (req, res) => {
     orderBy: { category: 'asc' }
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: menuItems
   });
@@ -21,7 +21,7 @@ router.get('/', asyncHandler(async (req, res) => {
 // Get menu item by ID
 router.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
-  
+
   const menuItem = await prisma.menuItem.findUnique({
     where: { id }
   });
@@ -33,7 +33,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     });
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: menuItem
   });
@@ -54,7 +54,7 @@ router.post('/', authenticateToken, asyncHandler(async (req, res) => {
     }
   });
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
     data: menuItem
   });
@@ -78,7 +78,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
     }
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: menuItem
   });
@@ -92,7 +92,7 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req, res) => {
     where: { id }
   });
 
-  res.json({
+  return res.json({
     success: true,
     message: 'Menu item deleted successfully'
   });

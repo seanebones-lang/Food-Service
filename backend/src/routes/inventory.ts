@@ -12,10 +12,10 @@ const router = Router();
 router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   const { category, lowStock, limit = 50, offset = 0 } = req.query;
 
-  const where: any = { isActive: true };
-  if (category) where.category = category;
+  const where: { isActive: boolean; category?: string; currentStock?: { lte: number } } = { isActive: true };
+  if (category && typeof category === 'string') where.category = category;
   if (lowStock === 'true') {
-    where.currentStock = { lte: prisma.inventoryItem.fields.minStock };
+    where.currentStock = { lte: 10 }; // Default minimum stock threshold
   }
 
   const inventoryItems = await prisma.inventoryItem.findMany({
@@ -25,7 +25,7 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
     skip: parseInt(offset as string)
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: inventoryItems
   });
@@ -46,7 +46,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req, res) => {
     });
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: inventoryItem
   });
@@ -112,7 +112,7 @@ router.put('/:id', authenticateToken, asyncHandler(async (req, res) => {
     }
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: inventoryItem
   });
@@ -167,7 +167,7 @@ router.patch('/:id/stock', authenticateToken, asyncHandler(async (req, res) => {
     }
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: updatedItem
   });
@@ -185,7 +185,7 @@ router.get('/alerts/low-stock', authenticateToken, asyncHandler(async (req, res)
     orderBy: { currentStock: 'asc' }
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: lowStockItems
   });
@@ -207,7 +207,7 @@ router.get('/predictions', authenticateToken, asyncHandler(async (req, res) => {
 
   const predictions = await aiService.predictInventoryNeeds(inventoryData);
 
-  res.json({
+  return res.json({
     success: true,
     data: predictions
   });
@@ -216,18 +216,19 @@ router.get('/predictions', authenticateToken, asyncHandler(async (req, res) => {
 // Sync inventory with Square
 router.post('/sync/square', authenticateToken, asyncHandler(async (req, res) => {
   try {
-    const syncedCount = await squareService.syncInventory();
+    const locationId = process.env.SQUARE_LOCATION_ID || '';
+    const inventoryCounts = await squareService.syncInventory(locationId);
     
-    res.json({
+    return res.json({
       success: true,
-      message: `Successfully synced ${syncedCount} inventory items with Square`,
-      syncedCount
+      message: `Successfully synced ${inventoryCounts.length} inventory items with Square`,
+      syncedCount: inventoryCounts.length
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to sync inventory with Square',
-      details: error.message
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }));
@@ -241,10 +242,7 @@ router.get('/analytics', authenticateToken, asyncHandler(async (req, res) => {
 
   // Get inventory usage data (this would need to be calculated from order history)
   const inventoryItems = await prisma.inventoryItem.findMany({
-    where: { isActive: true },
-    include: {
-      // This would need relations to order items for actual usage tracking
-    }
+    where: { isActive: true }
   });
 
   const analytics = {
@@ -257,8 +255,10 @@ router.get('/analytics', authenticateToken, asyncHandler(async (req, res) => {
     averageStockLevel: inventoryItems.reduce((sum, item) => sum + item.currentStock, 0) / inventoryItems.length
   };
 
-  res.json({
+  return res.json({
     success: true,
     data: analytics
   });
 }));
+
+export default router;

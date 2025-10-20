@@ -66,7 +66,6 @@ export default function POSTerminal() {
     channel: 'IN_PERSON' as const
   });
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD'>('CARD');
-  const [cashReceived, setCashReceived] = useState(0);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const queryClient = useQueryClient();
@@ -98,20 +97,34 @@ export default function POSTerminal() {
   useEffect(() => {
     const socket = io(API_URL);
     
-    socket.on('new-order', (data) => {
+    socket.on('new-order', () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     });
 
-    socket.on('order-status-update', (data) => {
+    socket.on('order-status-update', () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [queryClient]);
 
   // Create order mutation
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: any) => {
+    mutationFn: async (orderData: {
+      orderItems: Array<{
+        menuItemId: string;
+        quantity: number;
+        modifiers?: Array<{ id: string; name: string; price: number }>;
+        notes?: string;
+      }>;
+      customerName: string;
+      customerPhone?: string;
+      customerEmail?: string;
+      channel: string;
+      syncToSquare: boolean;
+    }) => {
       const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,7 +142,13 @@ export default function POSTerminal() {
 
   // Process payment mutation
   const processPaymentMutation = useMutation({
-    mutationFn: async (paymentData: any) => {
+    mutationFn: async (paymentData: {
+      orderId: string;
+      amount: number;
+      method: string;
+      sourceId?: string;
+      idempotencyKey: string;
+    }) => {
       const response = await fetch(`${API_URL}/api/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -233,10 +252,10 @@ export default function POSTerminal() {
     });
   };
 
-  const categories = ['all', ...new Set(menuItems.map(item => item.category))];
+  const categories: string[] = ['all', ...(Array.from(new Set(menuItems.map((item: MenuItem) => item.category))) as string[])];
   const filteredItems = selectedCategory === 'all' 
     ? menuItems 
-    : menuItems.filter(item => item.category === selectedCategory);
+    : menuItems.filter((item: MenuItem) => item.category === selectedCategory);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -298,7 +317,7 @@ export default function POSTerminal() {
 
             {/* Menu Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredItems.map(item => (
+              {filteredItems.map((item: MenuItem) => (
                 <button
                   key={item.id}
                   onClick={() => addToCart(item)}

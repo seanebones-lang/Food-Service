@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/auth';
 import { prisma } from '../index';
 import { squareService } from '../services/squareService';
 import { twilioService } from '../services/twilioService';
+import { PaymentStatus, PaymentMethod } from '@prisma/client';
 
 const router = Router();
 
@@ -11,9 +12,9 @@ const router = Router();
 router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   const { status, method, limit = 50, offset = 0 } = req.query;
 
-  const where: any = {};
-  if (status) where.status = status;
-  if (method) where.method = method;
+  const where: { status?: PaymentStatus; method?: PaymentMethod } = {};
+  if (status && typeof status === 'string') where.status = status as PaymentStatus;
+  if (method && typeof method === 'string') where.method = method as PaymentMethod;
 
   const payments = await prisma.payment.findMany({
     where,
@@ -30,7 +31,7 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
     skip: parseInt(offset as string)
   });
 
-  res.json({
+  return res.json({
     success: true,
     data: payments
   });
@@ -62,7 +63,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req, res) => {
     });
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: payment
   });
@@ -70,7 +71,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req, res) => {
 
 // Process payment
 router.post('/', asyncHandler(async (req, res) => {
-  const { orderId, amount, method, squarePaymentId, transactionId, sourceId, idempotencyKey } = req.body;
+  const { orderId, amount, method, transactionId, sourceId, idempotencyKey } = req.body;
 
   // Verify order exists
   const order = await prisma.order.findUnique({
@@ -92,6 +93,7 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   let squarePaymentResult = null;
+  let squarePaymentId = null;
 
   // Process payment through Square if sourceId is provided
   if (method === 'CARD' && sourceId && idempotencyKey) {
@@ -112,7 +114,7 @@ router.post('/', asyncHandler(async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Payment processing failed',
-        details: error.message
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   }
@@ -135,7 +137,7 @@ router.post('/', asyncHandler(async (req, res) => {
     _sum: { amount: true }
   });
 
-  if (totalPaid._sum.amount && totalPaid._sum.amount >= Number(order.total)) {
+  if (totalPaid._sum.amount && Number(totalPaid._sum.amount) >= Number(order.total)) {
     await prisma.order.update({
       where: { id: orderId },
       data: { status: 'CONFIRMED' }
@@ -148,7 +150,7 @@ router.post('/', asyncHandler(async (req, res) => {
     }
   }
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
     data: {
       ...payment,
@@ -160,7 +162,7 @@ router.post('/', asyncHandler(async (req, res) => {
 // Process refund
 router.post('/:id/refund', authenticateToken, asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { amount, reason } = req.body;
+  const { amount } = req.body;
 
   const payment = await prisma.payment.findUnique({
     where: { id },
@@ -192,7 +194,7 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Refund processing failed',
-        details: error.message
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   }
@@ -208,7 +210,7 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req, res) => {
     }
   });
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
     data: {
       ...refund,
