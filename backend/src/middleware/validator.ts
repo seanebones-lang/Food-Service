@@ -1,0 +1,42 @@
+import { Request, Response, NextFunction } from 'express';
+import { AnyZodObject, ZodError } from 'zod';
+import { logger } from './logger';
+
+export const validate = (schema: AnyZodObject) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await schema.parseAsync({
+        body: req.body,
+        query: req.query,
+        params: req.params,
+      });
+
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const errorMessages = error.errors.map((err) => ({
+          path: err.path.join('.'),
+          message: err.message,
+        }));
+
+        logger.warn('Validation error', {
+          path: req.path,
+          method: req.method,
+          errors: errorMessages,
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: 'Validation failed',
+          details: errorMessages,
+        });
+      }
+
+      logger.error('Validation middleware error', { error });
+      return res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+      });
+    }
+  };
+};
