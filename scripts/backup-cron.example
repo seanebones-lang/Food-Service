@@ -1,0 +1,11 @@
+# Cron schedule for automated database backups
+# Edit with: crontab -e
+
+# Backup database every 6 hours
+0 */6 * * * /home/user/Food-Service/scripts/backup-database.sh >> /var/log/pos-backup.log 2>&1
+
+# Daily backup at 2 AM
+0 2 * * * DATABASE_NAME=restaurant_pos BACKUP_DIR=/var/backups/postgres S3_BUCKET=my-bucket RETENTION_DAYS=30 /home/user/Food-Service/scripts/backup-database.sh
+
+# Weekly full backup on Sundays at 3 AM
+0 3 * * 0 DATABASE_NAME=restaurant_pos BACKUP_DIR=/var/backups/postgres-weekly S3_BUCKET=my-bucket RETENTION_DAYS=90 /home/user/Food-Service/scripts/backup-database.sh

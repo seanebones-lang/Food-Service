@@ -21,6 +21,7 @@ import { cronService } from './services/cronService';
 import { initializeSentry } from './services/sentry.service';
 import { scheduleRecurringJobs, shutdownQueues } from './services/queue.service';
 import { metricsHandler } from './services/metrics.service';
+import { setupSwagger } from './config/swagger';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -86,6 +87,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 app.use(metricsMiddleware);
+
+// Setup API documentation
+setupSwagger(app);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

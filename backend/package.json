@@ -53,6 +53,8 @@
     "redis": "^4.7.0",
     "socket.io": "^4.8.1",
     "square": "^43.1.1",
+    "swagger-jsdoc": "^7.0.3",
+    "swagger-ui-express": "^6.0.3",
     "twilio": "^5.10.3",
     "winston": "^3.18.3",
     "zod": "^3.24.1"
@@ -67,6 +69,8 @@
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.15.5",
     "@types/supertest": "^6.0.3",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.6",
     "@typescript-eslint/eslint-plugin": "^8.21.0",
     "@typescript-eslint/parser": "^8.21.0",
     "eslint": "^9.22.0",
