@@ -18,13 +18,20 @@ import kdsRoutes from './routes/kds';
 
 // Import services
 import { cronService } from './services/cronService';
+import { initializeSentry } from './services/sentry.service';
+import { scheduleRecurringJobs, shutdownQueues } from './services/queue.service';
+import { metricsHandler } from './services/metrics.service';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
+import { metricsMiddleware } from './middleware/metrics';
 
 // Load environment variables
 dotenv.config();
+
+// Initialize Sentry for error tracking
+initializeSentry();
 
 // Initialize Prisma client
 export const prisma = new PrismaClient();
@@ -78,6 +85,7 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
+app.use(metricsMiddleware);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -88,6 +96,9 @@ app.get('/health', (req, res) => {
     environment: process.env.NODE_ENV
   });
 });
+
+// Metrics endpoint for Prometheus
+app.get('/metrics', metricsHandler);
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -166,23 +177,29 @@ app.use((req, res) => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   winstonLogger.info('SIGINT received, shutting down gracefully');
+  await shutdownQueues();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   winstonLogger.info('SIGTERM received, shutting down gracefully');
+  await shutdownQueues();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   winstonLogger.info(`🚀 Restaurant POS Backend running on port ${PORT}`);
   winstonLogger.info(`📊 Environment: ${process.env.NODE_ENV}`);
   winstonLogger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL}`);
   winstonLogger.info(`⏰ Cron jobs initialized: ${Object.keys(cronService.getJobStatus()).length} jobs`);
+
+  // Schedule background jobs
+  await scheduleRecurringJobs();
+  winstonLogger.info(`📬 Background job queues initialized`);
 });
 
 export default app;
