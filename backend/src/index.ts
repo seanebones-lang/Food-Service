@@ -27,6 +27,7 @@ import { setupSwagger } from './config/swagger';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
 import { metricsMiddleware } from './middleware/metrics';
+import { socketAuthMiddleware } from './middleware/socketAuth';
 
 // Load environment variables
 dotenv.config();
@@ -48,6 +49,9 @@ export const io = new Server(server, {
     methods: ["GET", "POST"]
   }
 });
+
+// Apply WebSocket authentication
+io.use(socketAuthMiddleware);
 
 // Configure Winston logger
 const winstonLogger = winston.createLogger({
