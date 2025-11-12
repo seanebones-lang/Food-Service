@@ -1,0 +1,293 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+data:
+  dashboard-pos-overview.json: |
+    {
+      "dashboard": {
+        "title": "Restaurant POS - System Overview",
+        "tags": ["pos", "overview"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "HTTP Request Rate",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "rate(http_requests_total[5m])",
+                "legendFormat": "{{method}} {{route}}"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "HTTP Request Duration (p95)",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+                "legendFormat": "{{route}}"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Error Rate",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 8
+            },
+            "targets": [
+              {
+                "expr": "rate(http_request_errors_total[5m])",
+                "legendFormat": "{{error_type}}"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Database Query Duration",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 8
+            },
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m]))",
+                "legendFormat": "{{operation}} {{model}}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+  dashboard-business-metrics.json: |
+    {
+      "dashboard": {
+        "title": "Restaurant POS - Business Metrics",
+        "tags": ["pos", "business"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Orders Created (Last Hour)",
+            "type": "stat",
+            "gridPos": {
+              "h": 4,
+              "w": 6,
+              "x": 0,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "increase(orders_created_total[1h])"
+              }
+            ],
+            "options": {
+              "graphMode": "area",
+              "colorMode": "value"
+            }
+          },
+          {
+            "id": 2,
+            "title": "Total Revenue (Last Hour)",
+            "type": "stat",
+            "gridPos": {
+              "h": 4,
+              "w": 6,
+              "x": 6,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "increase(orders_value_total[1h])"
+              }
+            ],
+            "options": {
+              "graphMode": "area",
+              "colorMode": "value",
+              "unit": "currencyUSD"
+            }
+          },
+          {
+            "id": 3,
+            "title": "Payment Success Rate",
+            "type": "stat",
+            "gridPos": {
+              "h": 4,
+              "w": 6,
+              "x": 12,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "rate(payments_processed_total{status=\"COMPLETED\"}[5m]) / rate(payments_processed_total[5m]) * 100"
+              }
+            ],
+            "options": {
+              "graphMode": "area",
+              "colorMode": "value",
+              "unit": "percent"
+            }
+          },
+          {
+            "id": 4,
+            "title": "Low Stock Items",
+            "type": "stat",
+            "gridPos": {
+              "h": 4,
+              "w": 6,
+              "x": 18,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "inventory_low_stock_items"
+              }
+            ],
+            "options": {
+              "graphMode": "none",
+              "colorMode": "value"
+            }
+          },
+          {
+            "id": 5,
+            "title": "Orders by Channel",
+            "type": "piechart",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 4
+            },
+            "targets": [
+              {
+                "expr": "sum by (channel) (increase(orders_created_total[24h]))"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Revenue Trend (24h)",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 4
+            },
+            "targets": [
+              {
+                "expr": "rate(orders_value_total[5m])",
+                "legendFormat": "{{channel}}"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Square API Performance",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 12
+            },
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(square_api_duration_seconds_bucket[5m]))",
+                "legendFormat": "{{endpoint}}"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Cache Hit Rate",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 12
+            },
+            "targets": [
+              {
+                "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m])) * 100",
+                "legendFormat": "{{key_pattern}}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+  dashboard-queue-metrics.json: |
+    {
+      "dashboard": {
+        "title": "Restaurant POS - Background Jobs",
+        "tags": ["pos", "queues"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Jobs Processed (Success vs Failure)",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "rate(queue_jobs_processed_total{status=\"completed\"}[5m])",
+                "legendFormat": "Success - {{queue}}"
+              },
+              {
+                "expr": "rate(queue_jobs_processed_total{status=\"failed\"}[5m])",
+                "legendFormat": "Failed - {{queue}}"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Job Processing Duration (p95)",
+            "type": "graph",
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 0
+            },
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(queue_job_duration_seconds_bucket[5m]))",
+                "legendFormat": "{{queue}}"
+              }
+            ]
+          }
+        ]
+      }
+    }
